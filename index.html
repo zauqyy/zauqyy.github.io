@@ -65,6 +65,8 @@
     </div>
     <canvas id="webgl-canvas"></canvas>
 
+    <audio id="background-music" loop src="audio/musik.mp3"></audio>
+
     <script type="importmap">
         {
             "imports": {
@@ -80,33 +82,18 @@
         import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
         const photoUrls = [
-            'images/1.jpg',
-            'images/2.jpg',
-            'images/3.jpg',
-            'images/4.jpg',
-            'images/5.jpg',
-            'images/6.jpg',
-            'images/7.jpg',
-            'images/8.jpg',
-            'images/9.jpg',
-            'images/10.jpg',
-            'images/11.jpg',
-            'images/12.jpg',
-            'images/13.jpg',
-            'images/14.jpg',
-            'images/15.jpg',
-            'images/16.jpg'
+            'images/1.jpg', 'images/2.jpg', 'images/3.jpg', 'images/4.jpg',
+            'images/5.jpg', 'images/6.jpg', 'images/7.jpg', 'images/8.jpg',
+            'images/9.jpg', 'images/10.jpg', 'images/11.jpg', 'images/12.jpg',
+            'images/13.jpg', 'images/14.jpg', 'images/15.jpg', 'images/16.jpg'
         ];
         
         const TOTAL_ELEMENTS = 160;
         const SPHERE_RADIUS = 800;
-        
         const NUM_STARS = 1000;
         const STAR_SPEED_MIN = 0.5;
         const STAR_SPEED_MAX = 1.5;
         const STAR_SIZE = 1.5;
-
-        // --- AKHIR PENGATURAN ---
 
         let camera, scene, renderer, controls;
         let webglCamera, webglScene, webglRenderer, stars;
@@ -117,8 +104,6 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
             camera.position.z = 1800;
 
-            // !! PERUBAHAN LOGIKA PENYUSUNAN GAMBAR DIMULAI DI SINI !!
-            // Alih-alih mengacak, kita akan menyusunnya secara teratur.
             const content = [];
             const numPhotos = photoUrls.length;
             const numTexts = TOTAL_ELEMENTS - numPhotos;
@@ -126,10 +111,7 @@
             let textCounter = 0;
             
             for (let i = 0; i < numPhotos; i++) {
-                // Tambahkan 1 foto
                 content.push({ type: 'photo', value: photoUrls[i] });
-                
-                // Tambahkan beberapa tulisan setelah foto
                 for (let j = 0; j < textPerPhoto; j++) {
                     if (textCounter < numTexts) {
                         content.push({ type: 'text', value: 'Aku mencintai Mu' });
@@ -137,11 +119,9 @@
                     }
                 }
             }
-            // Jika ada sisa tulisan, tambahkan di akhir
             while (content.length < TOTAL_ELEMENTS) {
                  content.push({ type: 'text', value: 'Aku mencintai Mu' });
             }
-            // !! LOGIKA PENYUSUNAN SELESAI !!
 
             const phi = Math.PI * (3 - Math.sqrt(5));
             for (let i = 0; i < TOTAL_ELEMENTS; i++) {
@@ -212,23 +192,35 @@
             starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
             stars = new THREE.Points(starGeometry, starMaterial);
             webglScene.add(stars);
+
+            // !! LOGIKA UNTUK MEMUTAR MUSIK DITAMBAHKAN DI SINI !!
+            const audio = document.getElementById('background-music');
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("Autoplay dicegah browser. Menunggu interaksi pengguna...");
+                    const playOnFirstInteraction = () => {
+                        audio.play();
+                        window.removeEventListener('click', playOnFirstInteraction);
+                        window.removeEventListener('touchstart', playOnFirstInteraction);
+                    };
+                    window.addEventListener('click', playOnFirstInteraction);
+                    window.addEventListener('touchstart', playOnFirstInteraction);
+                });
+            }
         }
 
         function animate() {
             requestAnimationFrame(animate);
-
             controls.update();
             renderer.render(scene, camera);
-
             const positions = stars.geometry.attributes.position.array;
             const halfW = window.innerWidth / 2;
             const halfH = window.innerHeight / 2;
-
             for (let i = 0; i < positions.length; i += 3) {
                 const speed = starVelocities[i / 3];
                 positions[i] -= speed * 0.7;
                 positions[i + 1] -= speed;
-
                 if (positions[i] < -halfW || positions[i + 1] < -halfH) {
                     if (Math.random() > 0.5) {
                         positions[i] = halfW;
@@ -240,18 +232,15 @@
                 }
             }
             stars.geometry.attributes.position.needsUpdate = true;
-
             webglRenderer.render(webglScene, webglCamera);
         }
         
         window.addEventListener('resize', () => {
             const width = window.innerWidth;
             const height = window.innerHeight;
-
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
             renderer.setSize(width, height);
-
             webglCamera.left = -width / 2;
             webglCamera.right = width / 2;
             webglCamera.top = height / 2;
