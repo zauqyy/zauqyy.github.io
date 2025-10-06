@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeri Bola Dunia 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: sans-serif;
+        }
+        
+        #container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .element {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+        
+        .element:hover {
+            transform: scale(1.2);
+            transition: transform 0.2s;
+        }
+
+        .text-element {
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            width: 250px;
+            text-align: center;
+            text-shadow:
+                0 0 5px #fff,
+                0 0 10px #ff00de,
+                0 0 15px #ff00de;
+        }
+
+        .photo-element {
+            width: 150px;
+            height: auto;
+            border: 4px solid white;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            background-color: #333;
+        }
+        
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1; 
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div style="position: absolute; bottom: 20px; width: 100%; text-align: center; color: white; font-size: 14px;">
+        Drag/Geser untuk Memutar | Scroll/Pinch untuk Zoom
+    </div>
+    <canvas id="webgl-canvas"></canvas>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+
+        const photoUrls = [
+            'images/1.jpg',
+            'images/2.jpg',
+            'images/3.jpg',
+            'images/4.jpg',
+            'images/5.jpg',
+            'images/6.jpg',
+            'images/7.jpg',
+            'images/8.jpg',
+            'images/9.jpg',
+            'images/10.jpg',
+            'images/11.jpg',
+            'images/12.jpg',
+            'images/13.jpg',
+            'images/14.jpg',
+            'images/15.jpg',
+            'images/16.jpg'
+        ];
+        
+        const TOTAL_ELEMENTS = 160;
+        const SPHERE_RADIUS = 800;
+        
+        const NUM_STARS = 1000;
+        const STAR_SPEED_MIN = 0.5;
+        const STAR_SPEED_MAX = 1.5;
+        const STAR_SIZE = 1.5;
+
+        // --- AKHIR PENGATURAN ---
+
+        let camera, scene, renderer, controls;
+        let webglCamera, webglScene, webglRenderer, stars;
+        let starVelocities = [];
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
+            camera.position.z = 1800;
+
+            // !! PERUBAHAN LOGIKA PENYUSUNAN GAMBAR DIMULAI DI SINI !!
+            // Alih-alih mengacak, kita akan menyusunnya secara teratur.
+            const content = [];
+            const numPhotos = photoUrls.length;
+            const numTexts = TOTAL_ELEMENTS - numPhotos;
+            const textPerPhoto = Math.floor(numTexts / numPhotos);
+            let textCounter = 0;
+            
+            for (let i = 0; i < numPhotos; i++) {
+                // Tambahkan 1 foto
+                content.push({ type: 'photo', value: photoUrls[i] });
+                
+                // Tambahkan beberapa tulisan setelah foto
+                for (let j = 0; j < textPerPhoto; j++) {
+                    if (textCounter < numTexts) {
+                        content.push({ type: 'text', value: 'Aku mencintai Mu' });
+                        textCounter++;
+                    }
+                }
+            }
+            // Jika ada sisa tulisan, tambahkan di akhir
+            while (content.length < TOTAL_ELEMENTS) {
+                 content.push({ type: 'text', value: 'Aku mencintai Mu' });
+            }
+            // !! LOGIKA PENYUSUNAN SELESAI !!
+
+            const phi = Math.PI * (3 - Math.sqrt(5));
+            for (let i = 0; i < TOTAL_ELEMENTS; i++) {
+                const y = 1 - (i / (TOTAL_ELEMENTS - 1)) * 2;
+                const radiusAtY = Math.sqrt(1 - y * y);
+                const theta = phi * i;
+                const x = Math.cos(theta) * radiusAtY;
+                const z = Math.sin(theta) * radiusAtY;
+                
+                const item = content[i];
+                const element = document.createElement(item.type === 'photo' ? 'img' : 'div');
+                element.className = 'element ' + (item.type === 'photo' ? 'photo-element' : 'text-element');
+                
+                if(item.type === 'photo') {
+                    element.src = item.value;
+                } else {
+                    element.innerHTML = item.value;
+                }
+
+                const object = new CSS3DObject(element);
+                object.position.set(x * SPHERE_RADIUS, y * SPHERE_RADIUS, z * SPHERE_RADIUS);
+                object.lookAt(new THREE.Vector3(0,0,0));
+                object.rotation.y += Math.PI;
+                scene.add(object);
+            }
+
+            renderer = new CSS3DRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableZoom = true;
+            controls.enablePan = false;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            webglScene = new THREE.Scene();
+            
+            const halfW = window.innerWidth / 2;
+            const halfH = window.innerHeight / 2;
+            webglCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 1000);
+            webglCamera.position.z = 10;
+
+            webglRenderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('webgl-canvas'),
+                alpha: true
+            });
+            webglRenderer.setPixelRatio(window.devicePixelRatio);
+            webglRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            const starGeometry = new THREE.BufferGeometry();
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xFFFFFF,
+                size: STAR_SIZE,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const starVertices = [];
+            for (let i = 0; i < NUM_STARS; i++) {
+                const x = THREE.MathUtils.randFloatSpread(window.innerWidth);
+                const y = THREE.MathUtils.randFloatSpread(window.innerHeight);
+                const z = THREE.MathUtils.randFloat(-200, 200);
+                starVertices.push(x, y, z);
+                starVelocities.push(THREE.MathUtils.randFloat(STAR_SPEED_MIN, STAR_SPEED_MAX));
+            }
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            stars = new THREE.Points(starGeometry, starMaterial);
+            webglScene.add(stars);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update();
+            renderer.render(scene, camera);
+
+            const positions = stars.geometry.attributes.position.array;
+            const halfW = window.innerWidth / 2;
+            const halfH = window.innerHeight / 2;
+
+            for (let i = 0; i < positions.length; i += 3) {
+                const speed = starVelocities[i / 3];
+                positions[i] -= speed * 0.7;
+                positions[i + 1] -= speed;
+
+                if (positions[i] < -halfW || positions[i + 1] < -halfH) {
+                    if (Math.random() > 0.5) {
+                        positions[i] = halfW;
+                        positions[i + 1] = THREE.MathUtils.randFloatSpread(window.innerHeight);
+                    } else {
+                        positions[i] = THREE.MathUtils.randFloatSpread(window.innerWidth);
+                        positions[i + 1] = halfH;
+                    }
+                }
+            }
+            stars.geometry.attributes.position.needsUpdate = true;
+
+            webglRenderer.render(webglScene, webglCamera);
+        }
+        
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+
+            webglCamera.left = -width / 2;
+            webglCamera.right = width / 2;
+            webglCamera.top = height / 2;
+            webglCamera.bottom = -height / 2;
+            webglCamera.updateProjectionMatrix();
+            webglRenderer.setSize(width, height);
+        });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
